@@ -5,6 +5,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+# import plotly.express as px
 
 ################################################################################
 #   Variables
@@ -16,6 +17,7 @@ DATA_URL = (
 DICT_FILTER_LABEL = {
     'Variety': 'variety'
 }
+
 ################################################################################
 #   Loading functions
 ################################################################################
@@ -38,29 +40,33 @@ def filtering_data(df_data, column, filter):
 ################################################################################
 #   Useful functions
 ################################################################################
-def write_points_statistics(subheader, dict_wine, list_of_plots):
+def write_statistics(subheader, dict_wine, list_of_plots):
     st.subheader(subheader)
     for dict_plots in list_of_plots:
         text = dict_plots['text']
         variable = dict_plots['variable']
         variable_value = dict_wine.get(variable)
-        if variable_value == variable_value:
-            st.write("**{}**: {}".format(text, dict_wine[variable]))
+        if variable_value is not None:
+            print_text = "**{}**: {}".format(text, dict_wine[variable])
+            if 'adicional_text' in dict_plots.keys():
+                print_text += dict_plots['adicional_text']
+            st.write(print_text)
 
-def show_points_statistics(df):
+def show_statistics(df, variable, text, header_text):
     # st.write('The number of points WineEnthusiast rated the wine on a scale of
     # 1-100 (though they say they only post reviews for')
     # Find the best and the worst wines
-    higher = df.loc[df.points.idxmax()].to_dict()
-    lower = df.loc[df.points.idxmin()].to_dict()
+    higher = df.loc[df[variable].idxmax()].to_dict()
+    lower = df.loc[df[variable].idxmin()].to_dict()
     list_of_plots = [
         {'text': 'Title', 'variable': 'title'},
         {'text': 'Rate', 'variable': 'points'},
         {'text': 'Designation', 'variable': 'designation'},
+        {'text': 'Price', 'variable': 'price', 'adicional_text': ' USD'}
     ]
-    st.header("WineEnthusiasts' rating")
-    write_points_statistics("Higher rate", higher, list_of_plots)
-    write_points_statistics("Lower rate", lower, list_of_plots)
+    st.header(header_text)
+    write_statistics("Higher ".format(text), higher, list_of_plots)
+    write_statistics("Lower ".format(text), lower, list_of_plots)
 
 
 ################################################################################
@@ -82,7 +88,8 @@ if filter != 'Select One':
     st.write('You selected:', filter)
     df_filtered = filtering_data(df_data, filter_column, filter)
     st.write(df_filtered.head())
-    show_points_statistics(df_filtered)
+    show_statistics(df_filtered, 'points', 'rate', "WineEnthusiasts' rating")
+    show_statistics(df_filtered, 'price', 'price', 'Prices')
 
 ################################################################################
 #   Noot used (yet) functions
