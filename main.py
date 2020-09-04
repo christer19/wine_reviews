@@ -5,7 +5,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-# import plotly.express as px
+import plotly.express as px
 
 ################################################################################
 #   Variables
@@ -17,7 +17,7 @@ DATA_URL = (
 DICT_FILTER_LABEL = {
     'Variety': 'variety'
 }
-
+MAXIMUM_ELEMENTS_IN_CHART = 10
 ################################################################################
 #   Loading functions
 ################################################################################
@@ -68,6 +68,23 @@ def show_statistics(df, variable, text, header_text):
     write_statistics("Higher ".format(text), higher, list_of_plots)
     write_statistics("Lower ".format(text), lower, list_of_plots)
 
+def plot_pie_chart(df, column, title):
+    df_temp = df.copy(deep=True)
+    df_temp = df_temp[~df_temp[column].isnull()]
+    # Filtering the values with lower percentage and ploting them as other
+    if len(df_temp[column].unique()) > MAXIMUM_ELEMENTS_IN_CHART:
+        list_of_others = list(
+            df_temp[column].value_counts().index[MAXIMUM_ELEMENTS_IN_CHART-1:]
+        )
+        df_temp.loc[(df_temp[column].isin(list_of_others), column)] = 'Others'
+
+    fig = px.pie(
+        df_temp,
+        names=column,
+        title=title
+        )
+    st.write(fig)
+
 
 ################################################################################
 #   Pipeline
@@ -87,9 +104,15 @@ filter = st.sidebar.selectbox(label, filter_list, )
 if filter != 'Select One':
     st.write('You selected:', filter)
     df_filtered = filtering_data(df_data, filter_column, filter)
-    st.write(df_filtered.head())
+
+    plot_pie_chart(df_filtered, 'country',
+    "Countries who produces this wine's variety")
+
     show_statistics(df_filtered, 'points', 'rate', "WineEnthusiasts' rating")
     show_statistics(df_filtered, 'price', 'price', 'Prices')
+
+    if  st.button('See raw data:'):
+        st.write(df_filtered.fillna(''))
 
 ################################################################################
 #   Noot used (yet) functions
