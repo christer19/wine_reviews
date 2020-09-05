@@ -159,6 +159,18 @@ if filter != 'Select One':
     df_filtered = filtering_data(df_data, filter_column, filter)
     filtered_info(df_filtered)
 
+    if  st.button("See all wines' titles (filtered)"):
+        df_temp = df_filtered[['title', 'price','points']].fillna('').reset_index(drop=True).copy(deep=True).rename(
+            {
+                'price': 'Price',
+                'title': 'Title',
+                'points': 'Rate'
+            },
+            axis=1
+        ).sort_values('Title')
+        st.write(df_temp)
+
+
     st.header('Other informations')
     show_statistics(df_filtered, 'points', 'rate', "Wine Enthusiasts' rating")
     show_statistics(df_filtered, 'price', 'price', 'Prices')
@@ -166,9 +178,6 @@ if filter != 'Select One':
         st.header('Country informations')
 
         all_country_plots(df_filtered)
-
-    if  st.button('See raw data'):
-        st.write(df_filtered.fillna(''))
 
 ################################################################################
 #   Noot used (yet) functions
