@@ -16,7 +16,9 @@ DATA_URL = (
 )
 COUNTRY_FILE = 'contries.csv'
 DICT_FILTER_LABEL = {
-    'Variety': 'variety'
+    'Variety': 'variety',
+    'Country': 'country',
+    # 'Designation':'designation'
 }
 MAXIMUM_ELEMENTS_IN_CHART = 10
 ################################################################################
@@ -41,17 +43,34 @@ def filtering_data(df_data, column, filter):
 ################################################################################
 #   Useful functions
 ################################################################################
+def filtered_info(df):
+    st.header('General info')
+    number_of_wines = len(df)
+    text = 'You have selected **{}** wine{}.'.format(
+        number_of_wines,
+        's' if number_of_wines>0 else ''
+    )
+    prices = df.price.dropna()
+    if len(prices) > 0:
+        mean_price = np.average(prices)
+        text += ' The average price is **{:.2f}** USD.'.format(mean_price)
+    rates = df.points.dropna()
+    if len(rates) > 0:
+        mean_rate = np.average(rates)
+        text += ' The average rate of especialists is **{:.1f}** in a 0-100 scale.'.format(mean_rate)
+    st.markdown(text)
+
 def write_statistics(subheader, dict_wine, list_of_plots):
-    st.subheader(subheader)
+    st.write('**{}:**'.format(subheader))
     for dict_plots in list_of_plots:
         text = dict_plots['text']
         variable = dict_plots['variable']
         variable_value = dict_wine.get(variable)
-        if variable_value is not None:
-            print_text = "**{}**: {}".format(text, dict_wine[variable])
+        if (variable_value is not None) and (variable_value==variable_value):
+            print_text = "* {}: {}".format(text, dict_wine[variable])
             if 'adicional_text' in dict_plots.keys():
                 print_text += dict_plots['adicional_text']
-            st.write(print_text)
+            st.markdown(print_text)
 
 def show_statistics(df, variable, text, header_text):
     # st.write('The number of points WineEnthusiast rated the wine on a scale of
@@ -65,7 +84,7 @@ def show_statistics(df, variable, text, header_text):
         {'text': 'Designation', 'variable': 'designation'},
         {'text': 'Price', 'variable': 'price', 'adicional_text': ' USD'}
     ]
-    st.header(header_text)
+    st.subheader(header_text)
     write_statistics("Higher ".format(text), higher, list_of_plots)
     write_statistics("Lower ".format(text), lower, list_of_plots)
 
@@ -100,28 +119,10 @@ def load_countries_files():
 def plot_contry_map(df_filtered):
     mapa_lenght = len(df_filtered.country.unique())
     if mapa_lenght>1:
-        if  st.button('Open data'):
+        if  st.button('Open map'):
             st.map(df_filtered[["latitude", "longitude"]].dropna(how="any"))
 
-################################################################################
-#   Pipeline
-################################################################################
-
-st.sidebar.title('Wine reviews:')
-df_data = load_data()
-label = 'Variety'
-filter_column = DICT_FILTER_LABEL[label]
-filter_list = ['Select One'] + sorted(
-    df_data[filter_column]
-        .dropna()
-        .unique()
-    )
-filter = st.sidebar.selectbox(label, filter_list, )
-
-if filter != 'Select One':
-    st.write('You selected:', filter)
-    df_filtered = filtering_data(df_data, filter_column, filter)
-
+def all_country_plots(df_filtered):
     plot_pie_chart(df_filtered, 'country',
     "Countries who produces this wine's variety")
 
@@ -136,8 +137,35 @@ if filter != 'Select One':
 
     plot_contry_map(df_filtered)
 
-    show_statistics(df_filtered, 'points', 'rate', "WineEnthusiasts' rating")
+################################################################################
+#   Pipeline
+################################################################################
+
+st.sidebar.title('Wine reviews:')
+df_data = load_data()
+label_options = sorted(list(DICT_FILTER_LABEL.keys()))
+
+label = st.sidebar.selectbox('Filter by:', label_options)
+filter_column = DICT_FILTER_LABEL[label]
+filter_list = ['Select One'] + sorted(
+    df_data[filter_column]
+        .dropna()
+        .unique()
+    )
+filter = st.sidebar.selectbox(label, filter_list)
+
+if filter != 'Select One':
+    st.title('WINE REVIEW')
+    df_filtered = filtering_data(df_data, filter_column, filter)
+    filtered_info(df_filtered)
+
+    st.header('Other informations')
+    show_statistics(df_filtered, 'points', 'rate', "Wine Enthusiasts' rating")
     show_statistics(df_filtered, 'price', 'price', 'Prices')
+    if label != 'Country':
+        st.header('Country informations')
+
+        all_country_plots(df_filtered)
 
     if  st.button('See raw data'):
         st.write(df_filtered.fillna(''))
