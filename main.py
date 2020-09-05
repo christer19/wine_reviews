@@ -14,6 +14,7 @@ import plotly.express as px
 DATA_URL = (
     'wine_reviews.parq'
 )
+COUNTRY_FILE = 'contries.csv'
 DICT_FILTER_LABEL = {
     'Variety': 'variety'
 }
@@ -85,6 +86,22 @@ def plot_pie_chart(df, column, title):
         )
     st.write(fig)
 
+################################################################################
+#   Countries
+################################################################################
+def load_countries_files():
+    df_countries = pd.read_csv(
+        COUNTRY_FILE,
+        sep=';'
+    )
+    df_countries = df_countries[['name','latitude','longitude']]
+    return df_countries
+
+def plot_contry_map(df_filtered):
+    mapa_lenght = len(df_filtered.country.unique())
+    if mapa_lenght>1:
+        if  st.button('Open data'):
+            st.map(df_filtered[["latitude", "longitude"]].dropna(how="any"))
 
 ################################################################################
 #   Pipeline
@@ -108,10 +125,21 @@ if filter != 'Select One':
     plot_pie_chart(df_filtered, 'country',
     "Countries who produces this wine's variety")
 
+    # Merge country locations
+    df_countries = load_countries_files()
+    df_filtered = df_filtered.merge(
+        df_countries,
+        left_on='country',
+        right_on='name',
+        how='inner'
+    )
+
+    plot_contry_map(df_filtered)
+
     show_statistics(df_filtered, 'points', 'rate', "WineEnthusiasts' rating")
     show_statistics(df_filtered, 'price', 'price', 'Prices')
 
-    if  st.button('See raw data:'):
+    if  st.button('See raw data'):
         st.write(df_filtered.fillna(''))
 
 ################################################################################
