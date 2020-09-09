@@ -158,14 +158,14 @@ def see_all_wines_filtered(df_filtered):
     Parameters:
         df_filtered: Data filtered (Dataframe)
     """
-    df_temp = df_filtered[['title', 'price','points']].fillna('').reset_index(drop=True).copy(deep=True).rename(
+    df_temp = df_filtered[['title', 'price','points']].fillna('').copy(deep=True).rename(
         {
             'price': 'Price',
             'title': 'Title',
             'points': 'Rate'
         },
         axis=1
-    ).sort_values('Title')
+    ).sort_values('Title').reset_index(drop=True)
     st.write(df_temp)
 
 ################################################################################
@@ -231,6 +231,7 @@ if filter != 'Select One':
         st.header('Country informations')
         all_country_plots(df_filtered)
     if label != 'Variety':
+        st.header('Variety informations')
         plot_pie_chart(df_filtered, 'variety',
         "Variety distribution for the seleted wines")
 
