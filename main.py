@@ -20,7 +20,30 @@ DICT_FILTER_LABEL = {
     'Country': 'country',
     # 'Designation':'designation'
 }
+INVALID_CHOICE = 'Select One'
+INVALID_TEXT = ''
 MAXIMUM_ELEMENTS_IN_CHART = 10
+
+################################################################################
+#   Text functions
+################################################################################
+
+def text_normalization(text):
+    return str(text).lower()
+
+def search_possible_values(df, variable, text_searched, text_separator=' '):
+    key_words_searched = text_searched.split(text_separator)
+    possible_values = []
+    for i in df[variable]:
+        add_item = True
+        for key_word in key_words_searched:
+            if text_normalization(key_word) not in text_normalization(i):
+                add_item = False
+        if add_item:
+            possible_values.append(i)
+    return possible_values
+
+
 ################################################################################
 #   Loading functions
 ################################################################################
@@ -30,14 +53,21 @@ MAXIMUM_ELEMENTS_IN_CHART = 10
 def load_data():
     df_data = pd.read_parquet(DATA_URL)
     return df_data
+
 # Filtering data
-def filtering_data(df_data, column, filter):
-
-    if not isinstance(filter, list):
-        filter = [filter]
-
-    mask = (df_data[column].isin(filter))
-    df_filtered = df_data[mask]
+def filtering_data(df_data, column, filter, title_searched):
+    df_filtered = df_data.copy()
+    if filter != INVALID_CHOICE:
+        mask = (df_filtered[column]==filter)
+        df_filtered = df_filtered[mask]
+    if title_searched != INVALID_TEXT:
+        possible_values = search_possible_values(
+            df_filtered,
+            'title',
+            title_searched,
+        )
+        mask = (df_filtered['title'].isin(possible_values))
+        df_filtered = df_filtered[mask]
 
     return df_filtered
 ################################################################################
@@ -53,7 +83,7 @@ def filtered_info(df):
     st.header('General info')
     # Number of wines
     number_of_wines = len(df)
-    text = 'You have selected **{}** wine{}.'.format(
+    text = 'We found **{}** wine{}.'.format(
         number_of_wines,
         's' if number_of_wines>0 else ''
     )
@@ -138,17 +168,21 @@ def sidebarfilters(df):
     # Sidebar filters
 
     # Find out which filter the user wants to use
-    label_options = sorted(list(DICT_FILTER_LABEL.keys()))
+    label_options = [INVALID_CHOICE] + sorted(list(DICT_FILTER_LABEL.keys()))
     label = st.sidebar.selectbox('Filter by:', label_options)
 
     # find out the value wanted by the user
-    filtered_column = DICT_FILTER_LABEL[label]
-    filter_list = ['Select One'] + sorted(
-        df[filtered_column]
-            .dropna()
-            .unique()
-        )
-    filter = st.sidebar.selectbox(label, filter_list)
+    if label != INVALID_CHOICE:
+        filtered_column = DICT_FILTER_LABEL[label]
+        filter_list = [INVALID_CHOICE] + sorted(
+            df[filtered_column]
+                .dropna()
+                .unique()
+            )
+        filter = st.sidebar.selectbox(label, filter_list)
+    else:
+        filter = INVALID_CHOICE
+        filtered_column = 'title'
     return label, filter, filtered_column
 
 def see_all_wines_filtered(df_filtered):
@@ -210,45 +244,44 @@ st.sidebar.title('Wine reviews:')
 
 # Loading the data
 df_data = load_data()
+title_searched = st.sidebar.text_input('Wine:')
+title_searched = title_searched.strip()
 
 # Mount the sidebar filter
 label, filter, filtered_column = sidebarfilters(df_data)
 
-if filter != 'Select One':
+valid_filter = (filter != INVALID_CHOICE)
+valid_title = (title_searched != INVALID_TEXT)
+
+if valid_filter or valid_title:
 
     st.title('WINE REVIEW')
-    df_filtered = filtering_data(df_data, filtered_column, filter)
+    df_filtered = filtering_data(
+        df_data,
+        filtered_column,
+        filter,
+        title_searched
+    )
     filtered_info(df_filtered)
 
-    if  st.button("See all wines' titles (filtered)"):
-        see_all_wines_filtered(df_filtered)
+    # Only show infos if we have wines filtered
+    if len(df_filtered) > 0:
+        if  st.button("See all wines' titles (filtered)"):
+            see_all_wines_filtered(df_filtered)
 
-    st.header('Other informations')
-    show_statistics(df_filtered, 'points', 'rate', "Wine Enthusiasts' rating")
-    show_statistics(df_filtered, 'price', 'price', 'Prices')
+        st.header('Other informations')
+        show_statistics(df_filtered, 'points', 'rate', "Wine Enthusiasts' rating")
+        show_statistics(df_filtered, 'price', 'price', 'Prices')
 
-    if label != 'Country':
-        st.header('Country informations')
-        all_country_plots(df_filtered)
-    if label != 'Variety':
-        st.header('Variety informations')
-        plot_pie_chart(df_filtered, 'variety',
-        "Variety distribution for the seleted wines")
+        if label != 'Variety':
+            st.header('Variety informations')
+            plot_pie_chart(df_filtered, 'variety',
+            "Variety distribution for the seleted wines")
+        if label != 'Country':
+            st.header('Country informations')
+            all_country_plots(df_filtered)
+
 
 ################################################################################
 #   Noot used (yet) functions
 ################################################################################
-def text_normalization(text):
-    return str(text).lower()
-
-def search_possible_values(df_data, variable, text_searched,text_separator=' '):
-    key_words_searched = text_searched.split(text_separator)
-    possible_values = []
-    for i in df_data[variable]:
-        add_item = True
-        for key_word in key_words_searched:
-            if text_normalization(key_word) not in text_normalization(i):
-                add_item = False
-        if add_item:
-            possible_values.append(i)
-    return possible_values
