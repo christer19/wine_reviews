@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import json
 
 ################################################################################
 #   Variables
@@ -23,6 +24,7 @@ DICT_FILTER_LABEL = {
 INVALID_CHOICE = 'Select One'
 INVALID_TEXT = ''
 MAXIMUM_ELEMENTS_IN_CHART = 10
+RECOMMENDED_TITLES_FILE = 'titles_recommended.parq'
 
 ################################################################################
 #   Text functions
@@ -51,8 +53,26 @@ def search_possible_values(df, variable, text_searched, text_separator=' '):
 # Loading and persisting data
 @st.cache(persist=True)
 def load_data():
-    df_data = pd.read_parquet(DATA_URL)
-    return df_data
+
+    def valid_description(x):
+        # Some descriptions are only 'Imported by Someone', thouse descriptions are invalid
+        if 'imported by' in x.lower():
+            return False
+        # Short descriptions are also cutted of the recommended section
+        elif len(x)<50:
+            return False
+        else:
+            return True
+    df_data = pd.read_parquet(DATA_URL).drop_duplicates()
+
+    # Format reviews
+    df_data['description']=df_data['description'].apply(
+        lambda x: x if valid_description(x) else ''
+    )
+    # load file with the title and 3 recommended titles
+    df_recommendation = pd.read_parquet(RECOMMENDED_TITLES_FILE)
+
+    return df_data, df_recommendation
 
 # Filtering data
 def filtering_data(df_data, column, filter, title_searched):
@@ -130,11 +150,12 @@ def show_statistics(df, variable, text, header_text):
         {'text': 'Title', 'variable': 'title'},
         {'text': 'Rate', 'variable': 'points'},
         {'text': 'Designation', 'variable': 'designation'},
-        {'text': 'Price', 'variable': 'price', 'adicional_text': ' USD'}
+        {'text': 'Price', 'variable': 'price', 'adicional_text': ' USD'},
+        {'text': 'Review', 'variable': 'description'},
     ]
     st.subheader(header_text)
-    write_statistics("Higher ".format(text), higher, list_of_plots)
-    write_statistics("Lower ".format(text), lower, list_of_plots)
+    write_statistics("Higher ", higher, list_of_plots)
+    write_statistics("Lower ", lower, list_of_plots)
 
 def plot_pie_chart(df, column, title):
     # No null values alowed to plot
@@ -200,7 +221,7 @@ def see_all_wines_filtered(df_filtered):
         },
         axis=1
     ).sort_values('Title').reset_index(drop=True)
-    st.write(df_temp)
+    st.dataframe(df_temp)
 
 ################################################################################
 #   Countries
@@ -235,15 +256,55 @@ def all_country_plots(df_filtered):
 
     plot_contry_map(df_filtered)
 
+
+def recommended_options(df_data, df_recommendation):
+    MAX_POSSIBILITES = 50
+
+    posible_titles = df_filtered.title.tolist()
+    if len(posible_titles)>MAX_POSSIBILITES:
+        posible_titles = posible_titles[:MAX_POSSIBILITES]
+    # show only titles with recommendations
+    posible_titles = [ i for i in posible_titles
+        if i in df_recommendation.title.tolist()
+    ]
+
+    # If there is options
+    if len(posible_titles)>0:
+        posible_titles = [INVALID_CHOICE] + sorted(posible_titles)
+
+        st.header('Recommendations:')
+        chosen_title = st.selectbox("View recommendations of:", posible_titles)
+
+        # If the user choose one title
+        if chosen_title !=  INVALID_CHOICE:
+
+            # Plot title chose infos
+            list_of_plots = [
+                {'text': 'Rate', 'variable': 'points'},
+                {'text': 'Designation', 'variable': 'designation'},
+                {'text': 'Price', 'variable': 'price', 'adicional_text': ' USD'},
+                {'text': 'Review', 'variable': 'description'},
+            ]
+            item = df_filtered[df_filtered['title']==chosen_title].to_dict('records')[0]
+            write_statistics("You chose: {}".format(chosen_title), item, list_of_plots)
+
+            # Recommendations info
+            st.subheader('We recommend:')
+            recommended_titles = df_recommendation.loc[df_recommendation.title==chosen_title,'recommended'].tolist()
+            df_titles_recommended = df_data[df_data.title.isin(recommended_titles)]
+            for item in df_titles_recommended.to_dict('records'):
+                write_statistics("{}".format(item['title']), item, list_of_plots)
+
 ################################################################################
 #   Pipeline
 ################################################################################
 
 # Title
-st.sidebar.title('Wine reviews:')
+st.sidebar.title('Filters:')
 
 # Loading the data
-df_data = load_data()
+df_data, df_recommendation = load_data()
+
 title_searched = st.sidebar.text_input('Wine:')
 title_searched = title_searched.strip()
 
@@ -266,8 +327,11 @@ if valid_filter or valid_title:
 
     # Only show infos if we have wines filtered
     if len(df_filtered) > 0:
+
         if  st.button("See all wines' titles (filtered)"):
             see_all_wines_filtered(df_filtered)
+
+        recommended_options(df_data, df_recommendation)
 
         st.header('Other informations')
         show_statistics(df_filtered, 'points', 'rate', "Wine Enthusiasts' rating")
